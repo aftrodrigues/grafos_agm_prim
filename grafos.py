@@ -50,6 +50,13 @@ def reordenar(fila):
 	fila.sort(key=lambda x: x.dist)
 
 
+def na_fila(vertice, fila):
+	for v in fila:
+		if v.key == vertice:
+			return True
+	return False
+
+
 def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 	"""
 	Arvore Geradora Minima, com o algoritmo de Prim
@@ -93,28 +100,34 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 		fila.append(nodo)
 	
 	reordenar(fila)
-	
+	log.debug('fila: %s' % fila)	
 	# criando arvore com os nodos que aceitam mais de 1 grau
 	while len(fila):
 		u = fila.pop(0)
-		
+		if u.dist == float('inf'):
+			#print(fila)
+			None
+		if u == 43:
+			pdb.set_trace()
+		log.debug('u: %s' % u.key)
 		if u.key in limited_nodes:
 			continue
 
 		for v in range(1, num_vertices+1):
 			if u.key != v and \
 			v not in limited_nodes and \
-			mtr_adj[ u.key-1 ][v-1] < vertices[v-1].dist:
+			mtr_adj[ u.key-1 ][v-1] < vertices[v-1].dist and \
+			na_fila(v, fila):
 				vertices[v-1].pred = u.key
 				vertices[v-1].dist = mtr_adj[ u.key-1 ][v-1]
 				reordenar(fila)
-
+		log.debug('fila: %s' % fila)	
 	# conectando os nodos que aceitam grau maximo = 1 na arvore
 	for u in vertices:
 		if u == raiz:
 			continue
 
-		if u.key in limited_nodes:
+		if u.key in limited_nodes or u.dist == float('inf'):
 			for v in range(num_vertices):
 				v_dist = mtr_adj[u.key-1][v]
 				if v+1 != u.key and v_dist < u.dist and v+1 not in limited_nodes:
@@ -122,15 +135,35 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 					u.pred = v+1
 	return vertices
 
+def soma(vertices, limited_devices):
+	soma = 0
+	for v in vertices:
+		soma += v.dist
+
+	for l in limited_devices:
+		total = 0
+		for v in vertices:
+			if v.key == l:
+				log.debug('v[%s].pred= %s; d=%s' % (v.key, v.pred, v.dist))
+			if v.pred == l:
+				total += 1
+
+	#if total != 1:
+	log.debug('repetido ou ausente: %s(%s)' % (l, total))
+	return soma
+
 
 def main():
 	format = ('%(funcName)s %(lineno)d %(msg)s')
-	level = 'INFO'
+	LEVELS = ['INFO', 'DEBUG']
+	level = LEVELS[0]
 	log.basicConfig(level=level)
 	campis = int(raw_input())
-
+	lista_total = [21, 33]
 	if level == 'DEBUG':
 		campis = 1
+	
+	respostas = open('../casos_de_teste/teste100b_respostas.txt','r')
 
 	for i in range(1, campis+1):
 		devices = parse_input()
@@ -140,26 +173,23 @@ def main():
 		log.debug('lim_devices: %d' % (len(devices['limited_devices'])))
 		log.debug('lim_devices: %s' % devices['limited_devices'])
 
-		vertices = AGM_prim( devices['mtr_adj'], devices['limited_devices'], 45)
-		log.debug('vertices: \n%s' % vertices)
+		for v in range(1, len(devices['mtr_adj'])+1):
+			vertices = AGM_prim( devices['mtr_adj'], devices['limited_devices'], 2)
+			total = soma(vertices, devices['limited_devices'])
 
-		soma = 0
-		for v in vertices:
-			soma += v.dist
-
-		for l in devices['limited_devices']:
-			total = 0
-			for v in vertices:
-				if v.key == l:
-					log.debug('v[%s].pred= %s; d=%s' % (v.key, v.pred, v.dist))
-				if v.pred == l:
-					total += 1
-
-			#if total != 1:
-			log.debug('repetido ou ausente: %s(%s)' % (l, total))
-
-
-		print('Campus %s: %s' % (i, soma))
+			# validando resultados:
+			resposta = respostas.readline().replace('\n','').split(" ")
+			certo = False
+			#print('original: %s' % (resposta))
+			#print('resposta "%s" e "%s"' % (resposta[1][:-1], resposta[-1]))
+			if int(resposta[1][:-1]) == i and int(resposta[-1]) == total:
+				certo = True
+			print('Campus %s: %s = %s' % (i, total, certo))
+			if total not in lista_total and total == float('inf'):
+				log.info('raiz: %s / vertices: \n%s' %(v, vertices))
+			if level != LEVELS[1]:
+				break
+			
 		# tentando de outra forma
 		# nao utilizar a chave do nome para acessar diretamente o vetor
 		#mtr_adj_filt  # matriz que nao contem os nodos limitados
