@@ -12,6 +12,10 @@ import json
 # 7 ->(1) 1
 # 8 ->(5) 1
 
+# Saida esperada para o input do pdf:
+#Campus 1: 21
+#campus 2: 33
+
 class vertice:
 	def __init__(self, key):
 		self.key = key
@@ -85,6 +89,11 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 	if raiz in limited_nodes:
 		proximo = vertices[0]
 		for v in vertices:
+			if v.key != raiz:
+				proximo = v
+				break
+			
+		for v in vertices:
 			if v.key != raiz and \
 			v.key not in limited_nodes and \
 			mtr_adj[ v.key-1 ][ raiz-1 ] < mtr_adj[ proximo.key-1 ][ raiz-1 ]:
@@ -104,14 +113,15 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 	# criando arvore com os nodos que aceitam mais de 1 grau
 	while len(fila):
 		u = fila.pop(0)
-		if u.dist == float('inf'):
-			#print(fila)
-			None
-		if u == 43:
-			pdb.set_trace()
+		
 		log.debug('u: %s' % u.key)
 		if u.key in limited_nodes:
 			continue
+		
+		if u.dist == float('inf'):
+			log.debug('ERROR: vertice infinito: %s' % u.key)
+			log.debug(vertices)
+			log.debug(limited_nodes)
 
 		for v in range(1, num_vertices+1):
 			if u.key != v and \
@@ -122,18 +132,20 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 				vertices[v-1].dist = mtr_adj[ u.key-1 ][v-1]
 				reordenar(fila)
 		log.debug('fila: %s' % fila)	
+	
 	# conectando os nodos que aceitam grau maximo = 1 na arvore
 	for u in vertices:
 		if u == raiz:
 			continue
 
 		if u.key in limited_nodes or u.dist == float('inf'):
-			for v in range(num_vertices):
-				v_dist = mtr_adj[u.key-1][v]
-				if v+1 != u.key and v_dist < u.dist and v+1 not in limited_nodes:
+			for v in range(1, num_vertices+1):
+				v_dist = mtr_adj[u.key-1][v-1]
+				if v+1 != u.key and v_dist < u.dist and v not in limited_nodes:
 					u.dist = v_dist
-					u.pred = v+1
+					u.pred = v
 	return vertices
+
 
 def soma(vertices, limited_devices):
 	soma = 0
@@ -149,22 +161,20 @@ def soma(vertices, limited_devices):
 				total += 1
 
 	#if total != 1:
-	log.debug('repetido ou ausente: %s(%s)' % (l, total))
+	log.debug('repetido ou ausente: (%s)' % (total))
 	return soma
 
 
 def main():
-	format = ('%(funcName)s %(lineno)d %(msg)s')
+	format = ('DEBUG: %(funcName)-8s [%(lineno)d]:%(msg)s')
 	LEVELS = ['INFO', 'DEBUG']
 	level = LEVELS[0]
-	log.basicConfig(level=level)
+	log.basicConfig(level=level, format=format)
 	campis = int(raw_input())
 	lista_total = [21, 33]
 	if level == 'DEBUG':
-		campis = 1
+		campis = 2
 	
-	respostas = open('../casos_de_teste/teste100b_respostas.txt','r')
-
 	for i in range(1, campis+1):
 		devices = parse_input()
 		for line in devices['mtr_adj']:
@@ -173,23 +183,12 @@ def main():
 		log.debug('lim_devices: %d' % (len(devices['limited_devices'])))
 		log.debug('lim_devices: %s' % devices['limited_devices'])
 
-		for v in range(1, len(devices['mtr_adj'])+1):
-			vertices = AGM_prim( devices['mtr_adj'], devices['limited_devices'], 2)
-			total = soma(vertices, devices['limited_devices'])
-
-			# validando resultados:
-			resposta = respostas.readline().replace('\n','').split(" ")
-			certo = False
-			#print('original: %s' % (resposta))
-			#print('resposta "%s" e "%s"' % (resposta[1][:-1], resposta[-1]))
-			if int(resposta[1][:-1]) == i and int(resposta[-1]) == total:
-				certo = True
-			print('Campus %s: %s = %s' % (i, total, certo))
-			if total not in lista_total and total == float('inf'):
-				log.info('raiz: %s / vertices: \n%s' %(v, vertices))
-			if level != LEVELS[1]:
-				break
-			
+		vertices = AGM_prim( devices['mtr_adj'], devices['limited_devices'], 1)
+		total = soma(vertices, devices['limited_devices'])
+		log.debug('vertices: %s' % vertices)
+		print('Campus %s: %s' % (i, total))
+		#if campis == 25:
+		#	print('vertices: %s'  % vertices)
 		# tentando de outra forma
 		# nao utilizar a chave do nome para acessar diretamente o vetor
 		#mtr_adj_filt  # matriz que nao contem os nodos limitados
