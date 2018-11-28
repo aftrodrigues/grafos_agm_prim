@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import logging as log
 import json
 
@@ -17,6 +20,10 @@ import json
 #campus 2: 33
 
 class vertice:
+	"""
+	Classe para armazenar cada vértice, seu predecessor e sua distância
+	para o predecessor.
+	"""
 	def __init__(self, key):
 		self.key = key
 		self.pred = None
@@ -30,6 +37,9 @@ class vertice:
 
 
 def parse_input():
+	"""
+	faz o parse dos inputs via STDIN, de acordo com a descrição do trabalho
+	"""
 	devices = int(raw_input())
 	log.debug("devices: %d" % devices)
 	mtr_adj = [None] * devices #  matriz de adjacencia
@@ -46,9 +56,6 @@ def parse_input():
 	
 	return {'mtr_adj': mtr_adj, 'limited_devices':limited_devices}
 
-def mtr_adj_filt(mtr_adj, limited_devices):
-	return None
-
 
 def reordenar(fila):
 	fila.sort(key=lambda x: x.dist)
@@ -61,7 +68,31 @@ def na_fila(vertice, fila):
 	return False
 
 
-def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
+def verificar_raiz(mtr_adj, limited_nodes, vertices, raiz=1):
+	"""
+	se a raiz for um nodo limitado a grau maximo 1, 
+	procura o nodo mais proximo da raiz que não é limitado
+	para fazer AGM
+	"""
+
+	if raiz in limited_nodes:
+		for v in vertices:
+			if v.key not in limited_nodes and v.key != raiz:
+				proximo = v
+				break
+
+		for v in vertices:
+			if v.key != raiz and \
+			v.key not in limited_nodes and \
+			mtr_adj[ v.key-1 ][ raiz-1 ] < mtr_adj[ proximo.key-1 ][ raiz-1 ]:
+				proximo = v
+
+		log.debug('nova raiz: %s' % proximo.key)
+		proximo.dist = mtr_adj[ proximo.key-1 ][ raiz-1 ]
+		proximo.pred = raiz
+
+
+def AGM_prim(mtr_adj, limited_nodes=[], raiz=1):
 	"""
 	Arvore Geradora Minima, com o algoritmo de Prim
 		Gera uma arvore conexa com a soma das arestas minimizadas
@@ -75,54 +106,40 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 
 	fila = []
 	vertices = []  # ordenados de acordo com a chave
-	for i in range( num_vertices ):
-		vertices.append( vertice(i+1) )
+	
+	#  adicionando os nodos na lista de vertices e ordenando pela key
+	for i in range( 1, num_vertices+1 ):
+		vertices.append( vertice(i) )
 
 	vertices.sort(key = lambda x: x.key)
-
-
-	if raiz is None:
-		raiz = 1
-	vertices[raiz-1].dist = 0
+	log.debug('vertices: %s' % vertices)
 	
-	# definindo qual o nodo nao limitado mais proximo da raiz, para comecar a partir dele.
-	if raiz in limited_nodes:
-		proximo = vertices[0]
-		for v in vertices:
-			if v.key != raiz:
-				proximo = v
-				break
-			
-		for v in vertices:
-			if v.key != raiz and \
-			v.key not in limited_nodes and \
-			mtr_adj[ v.key-1 ][ raiz-1 ] < mtr_adj[ proximo.key-1 ][ raiz-1 ]:
-				proximo = v
-		log.debug('nova raiz: %s' % proximo.key)
-		proximo.dist = mtr_adj[ proximo.key-1 ][ raiz-1 ]
-		proximo.pred = raiz
-		
-	while raiz in limited_nodes and raiz-1 < len(vertices):
-		raiz += 1
-			
+	#  fila a ser ordenada pela distancia
 	for nodo in vertices:
 		fila.append(nodo)
+
+	#  se a raiz tiver grau máximo =1, seleciona o nodo mais próximo da raiz
+	#  para tornar ele a 'raiz'
+	verificar_raiz(mtr_adj, limited_nodes, vertices, raiz)
 	
+	vertices[raiz-1].dist = 0
+
+	#  ordena a fila por ordem de distancia para o predecessor.
 	reordenar(fila)
-	log.debug('fila: %s' % fila)	
+	log.debug('fila: %s' % fila)
+
 	# criando arvore com os nodos que aceitam mais de 1 grau
 	while len(fila):
+		#  nodo a ser testado
 		u = fila.pop(0)
 		
-		log.debug('u: %s' % u.key)
+		#  evitar os nodos com grau máximo = 1 por enquanto
 		if u.key in limited_nodes:
 			continue
 		
-		if u.dist == float('inf'):
-			log.debug('ERROR: vertice infinito: %s' % u.key)
-			log.debug(vertices)
-			log.debug(limited_nodes)
 
+		#  passando por todos os outros vértices, e adicionando
+		#  para selecionar os nodos que tem o nodo u como predecessor.
 		for v in range(1, num_vertices+1):
 			if u.key != v and \
 			v not in limited_nodes and \
@@ -138,62 +155,52 @@ def AGM_prim(mtr_adj, limited_nodes=[], raiz=None):
 		if u == raiz:
 			continue
 
-		if u.key in limited_nodes or u.dist == float('inf'):
+		# para cada nodo u de grau máximo = 1
+		if u.key in limited_nodes:
+			# verificar qual o nodo mais próximo, não limitado, diferente de u
 			for v in range(1, num_vertices+1):
-				v_dist = mtr_adj[u.key-1][v-1]
-				if v+1 != u.key and v_dist < u.dist and v not in limited_nodes:
+				v_dist = mtr_adj[u.key-1][v-1]  #  distância de u até v
+				if v != u.key and v_dist < u.dist and v not in limited_nodes:
 					u.dist = v_dist
 					u.pred = v
+
 	return vertices
 
 
-def soma(vertices, limited_devices):
+def soma(vertices):
+	"""
+	Soma as distancias para os predecessores de todos os vertices 
+	e retorna esse valor
+	"""
 	soma = 0
 	for v in vertices:
 		soma += v.dist
 
-	for l in limited_devices:
-		total = 0
-		for v in vertices:
-			if v.key == l:
-				log.debug('v[%s].pred= %s; d=%s' % (v.key, v.pred, v.dist))
-			if v.pred == l:
-				total += 1
-
-	#if total != 1:
-	log.debug('repetido ou ausente: (%s)' % (total))
 	return soma
 
 
 def main():
 	format = ('DEBUG: %(funcName)-8s [%(lineno)d]:%(msg)s')
-	LEVELS = ['INFO', 'DEBUG']
-	level = LEVELS[0]
+	level = 'INFO'
 	log.basicConfig(level=level, format=format)
+
 	campis = int(raw_input())
-	lista_total = [21, 33]
-	if level == 'DEBUG':
-		campis = 2
-	
+			
 	for i in range(1, campis+1):
 		devices = parse_input()
+
+		log.debug('size of mtr_adj: %s' % len(devices['mtr_adj']))
 		for line in devices['mtr_adj']:
 			log.debug(line)
-		log.debug('size of mtr_adj: %s' % len(devices['mtr_adj']))
-		log.debug('lim_devices: %d' % (len(devices['limited_devices'])))
-		log.debug('lim_devices: %s' % devices['limited_devices'])
+		
+		log.debug('size of limimited_devices: %d' % (len(devices['limited_devices'])))
+		log.debug('matrix of limited_devices: %s' % devices['limited_devices'])
 
 		vertices = AGM_prim( devices['mtr_adj'], devices['limited_devices'], 1)
-		total = soma(vertices, devices['limited_devices'])
-		log.debug('vertices: %s' % vertices)
+		total = soma(vertices)
+		
 		print('Campus %s: %s' % (i, total))
-		#if campis == 25:
-		#	print('vertices: %s'  % vertices)
-		# tentando de outra forma
-		# nao utilizar a chave do nome para acessar diretamente o vetor
-		#mtr_adj_filt  # matriz que nao contem os nodos limitados
-		#mtr_adj_filt = filter( devices['mtr_adj'], devices['limited_devices'] )
-		log.debug('\n')
+
 
 if __name__ == "__main__":
 	main()
