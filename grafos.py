@@ -1,6 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Python 2.7.12
+
+# Trabalho da Cadeira de Teoria dos Grafos da UFRGS
+# Author: Andrei F. T. Rodrigues
+# Nickname: aftrodrigues
+# Data: 02/12/2018
+
+# Obj: 
+# 	Conectar uma lista de nodos recebidos, da forma mais econômica possível
+# 	considerando que alguns nodos podem ter, no máximo, uma conexão
+
+# Detalhes Técnicos:
+# 	Foi utilizado o algoritmo da Árvore Geradora Mínima de Prim para gerar
+#	o menor grafo possível, desconsiderando os nodos de grau máximo 1,
+#	e apenas após o grafo estar completo, foi adicionado os nodos restantes
+#	ao nodo de grau máximo != 1 mais próximo.
+
 import logging as log
 import json
 
